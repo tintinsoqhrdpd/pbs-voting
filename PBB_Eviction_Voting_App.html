@@ -1,0 +1,912 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PBB: Bayan Botante Nomination & Eviction</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts & Phosphor Icons -->
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Outfit', 'sans-serif'],
+                    },
+                    colors: {
+                        pbb: {
+                            dark: '#0a0814',
+                            card: '#131024',
+                            cardBorder: '#231d3d',
+                            cyan: '#00f2fe',
+                            pink: '#ff007f',
+                            gold: '#ffd700',
+                            save: '#10b981',
+                            evict: '#ef4444'
+                        }
+                    },
+                    animation: {
+                        'pulse-glow': 'pulseGlow 2.5s infinite ease-in-out',
+                        'eye-beat': 'eyeBeat 3s infinite ease-in-out',
+                    },
+                    keyframes: {
+                        pulseGlow: {
+                            '0%, 100%': { boxShadow: '0 0 15px rgba(0, 242, 254, 0.3)' },
+                            '50%': { boxShadow: '0 0 35px rgba(255, 0, 127, 0.6)' }
+                        },
+                        eyeBeat: {
+                            '0%, 100%': { transform: 'scale(1)', filter: 'drop-shadow(0 0 8px #00f2fe)' },
+                            '50%': { transform: 'scale(1.12)', filter: 'drop-shadow(0 0 18px #ff007f)' }
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            background-color: #0a0814;
+            background-image: 
+                radial-gradient(at 10% 10%, rgba(0, 242, 254, 0.08) 0px, transparent 50%),
+                radial-gradient(at 90% 90%, rgba(255, 0, 127, 0.08) 0px, transparent 50%);
+            background-attachment: fixed;
+        }
+
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #0a0814; }
+        ::-webkit-scrollbar-thumb { background: #231d3d; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #3b306b; }
+
+        .pbb-glow-text-cyan {
+            text-shadow: 0 0 12px rgba(0, 242, 254, 0.6);
+        }
+        .pbb-glow-text-pink {
+            text-shadow: 0 0 12px rgba(255, 0, 127, 0.6);
+        }
+        .glass-panel {
+            background: rgba(19, 16, 36, 0.85);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+    </style>
+</head>
+<body class="text-slate-100 font-sans min-h-screen flex flex-col justify-between selection:bg-pbb-cyan selection:text-slate-950">
+
+    <!-- HEADER & STATUS -->
+    <header class="glass-panel sticky top-0 z-40 border-b border-purple-900/30">
+        <div class="max-w-7xl mx-auto px-4 py-3 sm:px-6 lg:px-8 flex flex-col md:flex-row items-center justify-between gap-4">
+            
+            <!-- Logo Section -->
+            <div class="flex items-center gap-3">
+                <div class="relative flex items-center justify-center w-12 h-12 rounded-full bg-gradient-to-tr from-pbb-cyan via-purple-600 to-pbb-pink p-0.5 shadow-lg animate-pulse-glow">
+                    <div class="w-full h-full bg-slate-950 rounded-full flex items-center justify-center">
+                        <i class="ph-bold ph-eye text-2xl text-pbb-cyan animate-eye-beat"></i>
+                    </div>
+                </div>
+                <div>
+                    <h1 class="text-xl sm:text-2xl font-black tracking-wider uppercase text-white flex items-center gap-2">
+                        PBB <span class="bg-gradient-to-r from-pbb-cyan to-pbb-pink bg-clip-text text-transparent">EVICTION EXPRESS</span>
+                    </h1>
+                    <p class="text-xs text-slate-400 font-medium tracking-wide">Bayan Botante: Save or Evict Your Housemates</p>
+                </div>
+            </div>
+
+            <!-- Timer / Deadline Card -->
+            <div class="flex items-center gap-4 bg-slate-950/70 px-4 py-2 rounded-xl border border-purple-500/20 w-full md:w-auto justify-between md:justify-end">
+                <div class="flex items-center gap-2.5">
+                    <i class="ph-bold ph-timer text-pbb-cyan text-xl" id="status-icon"></i>
+                    <div>
+                        <div class="text-[10px] uppercase font-bold tracking-widest text-slate-400" id="status-label">Voting Closes</div>
+                        <div class="text-xs sm:text-sm font-bold text-white tracking-wide" id="countdown-display">Calculating...</div>
+                    </div>
+                </div>
+                <div id="voting-status-badge" class="px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center gap-1.5">
+                    <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+                    <span>VOTING OPEN</span>
+                </div>
+            </div>
+
+        </div>
+    </header>
+
+    <!-- CLOSED VOTING BANNER -->
+    <div id="closed-banner" class="hidden bg-gradient-to-r from-red-900 via-pbb-pink to-red-900 text-white font-black px-4 py-3 text-center border-b border-red-500 flex items-center justify-center gap-2 text-sm sm:text-base tracking-wide shadow-lg">
+        <i class="ph-bold ph-lock-key text-xl"></i>
+        <span>VOTING HAS OFFICIALLY CLOSED (Deadline: Monday 12:30 PM Reached)</span>
+    </div>
+
+    <!-- MAIN CONTENT -->
+    <main class="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8 w-full flex-grow">
+
+        <!-- NAV BAR & ACTION CONTROLS -->
+        <div class="flex flex-col sm:flex-row items-center justify-between gap-4 mb-8">
+            <!-- Tabs -->
+            <div class="flex bg-slate-950/80 p-1.5 rounded-xl border border-purple-900/40 w-full sm:w-auto">
+                <button id="tab-vote" onclick="switchTab('vote')" class="flex-1 sm:flex-initial px-5 py-2.5 rounded-lg text-sm font-bold transition-all duration-200 flex items-center justify-center gap-2 bg-gradient-to-r from-pbb-cyan to-blue-600 text-slate-950 shadow-md">
+                    <i class="ph-bold ph-thumbs-up-down text-lg"></i>
+                    Vote Housemates
+                </button>
+                <button id="tab-leaderboard" onclick="switchTab('leaderboard')" class="flex-1 sm:flex-initial px-5 py-2.5 rounded-lg text-sm font-bold text-slate-400 hover:text-white transition-all duration-200 flex items-center justify-center gap-2">
+                    <i class="ph-bold ph-chart-bar text-lg"></i>
+                    Live Tally
+                </button>
+            </div>
+
+            <!-- Admin Button -->
+            <div class="flex items-center gap-3 w-full sm:w-auto justify-end">
+                <button onclick="openAdminModal()" class="px-4 py-2.5 bg-purple-950/60 hover:bg-purple-900/80 text-purple-200 hover:text-white rounded-xl text-xs font-bold border border-purple-500/30 transition flex items-center gap-2 shadow-lg">
+                    <i class="ph-bold ph-key text-base text-pbb-gold"></i>
+                    Admin Control Panel
+                </button>
+            </div>
+        </div>
+
+        <!-- TAB 1: VOTING GRID VIEW -->
+        <section id="view-vote" class="space-y-6">
+            <!-- Info Banner -->
+            <div class="glass-panel p-5 rounded-2xl border border-cyan-500/20 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-xl">
+                <div class="flex items-start gap-3">
+                    <div class="p-2.5 bg-cyan-500/10 text-pbb-cyan rounded-xl border border-cyan-500/20 mt-0.5">
+                        <i class="ph-bold ph-info text-2xl"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-extrabold text-white text-base tracking-wide">Unlimited Voting (BBS & BBE)</h3>
+                        <p class="text-xs text-slate-300 leading-relaxed max-w-2xl mt-0.5">
+                            Cast <strong>BBS (Vote to Save)</strong> to boost a housemate, or <strong>BBE (Vote to Evict)</strong> to deduct votes! You can vote as many times as you like until <strong>Monday at 12:30 PM</strong>.
+                        </p>
+                    </div>
+                </div>
+                <div class="text-xs font-semibold bg-slate-950/80 px-4 py-2.5 rounded-xl text-pbb-cyan border border-cyan-500/30 shrink-0">
+                    Total Cast Votes: <span id="total-vote-count-header" class="text-sm font-black text-white">0</span>
+                </div>
+            </div>
+
+            <!-- Housemates Card Grid -->
+            <div id="housemate-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                <!-- Dynamically generated housemate cards -->
+            </div>
+        </section>
+
+        <!-- TAB 2: LIVE TALLY & LEADERBOARD VIEW -->
+        <section id="view-leaderboard" class="hidden space-y-6">
+            <div class="glass-panel rounded-2xl p-6 shadow-2xl border border-purple-900/30">
+                <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6 pb-6 border-b border-purple-900/30">
+                    <div>
+                        <h2 class="text-2xl font-black text-white flex items-center gap-2">
+                            <i class="ph-bold ph-trophy text-pbb-gold"></i>
+                            Eviction Tally Standings
+                        </h2>
+                        <p class="text-xs text-slate-400 mt-1">Official breakdown of Bayan Botante votes (BBS, BBE, & Net Score).</p>
+                    </div>
+                    <div class="text-right">
+                        <div class="text-xs font-medium text-slate-400">Total Votes Recorded</div>
+                        <div class="text-2xl font-black text-pbb-cyan" id="total-votes-tally">0</div>
+                    </div>
+                </div>
+
+                <!-- Secret Tally Overlay Notice -->
+                <div id="tally-hidden-notice" class="hidden py-16 text-center space-y-3">
+                    <div class="w-16 h-16 rounded-full bg-purple-900/40 text-pbb-gold flex items-center justify-center mx-auto border border-purple-500/30 text-3xl">
+                        <i class="ph-bold ph-eye-slash"></i>
+                    </div>
+                    <h3 class="text-xl font-black text-white">Official Tally is Currently Secret</h3>
+                    <p class="text-xs text-slate-400 max-w-md mx-auto">
+                         Kuya has locked the live standings! Results will be revealed live during the Eviction Night announcement.
+                    </p>
+                </div>
+
+                <!-- Tally Breakdown Bars (Visible when allowed) -->
+                <div id="leaderboard-list" class="space-y-6">
+                    <!-- Dynamic Tally Items -->
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- FOOTER -->
+    <footer class="border-t border-purple-900/30 glass-panel py-6 text-center text-xs text-slate-500 mt-auto">
+        <div class="max-w-7xl mx-auto px-4">
+            <p>© Pinoy Big Brother Classmate Edition • Auto-Lock Schedule: Every Monday at 12:30 PM</p>
+        </div>
+    </footer>
+
+    <!-- ADMIN AUTH & CONTROL MODAL -->
+    <div id="admin-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4 hidden">
+        <div class="glass-panel border border-purple-500/30 rounded-2xl max-w-lg w-full p-6 shadow-2xl relative max-h-[90vh] overflow-y-auto">
+            
+            <button onclick="closeAdminModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white text-xl p-1 rounded-lg hover:bg-slate-800 transition">
+                <i class="ph-bold ph-x"></i>
+            </button>
+
+            <!-- STEP 1: PASSCODE AUTHENTICATION -->
+            <div id="admin-auth-section" class="space-y-4">
+                <div class="text-center space-y-2">
+                    <div class="w-12 h-12 bg-purple-900/50 rounded-full flex items-center justify-center mx-auto text-pbb-gold text-2xl border border-purple-500/30">
+                        <i class="ph-bold ph-lock-key"></i>
+                    </div>
+                    <h3 class="text-xl font-black text-white">Kuya's Control Panel</h3>
+                    <p class="text-xs text-slate-400">Enter Admin Passcode to access voting settings.</p>
+                </div>
+
+                <form onsubmit="verifyAdminPasscode(event)" class="space-y-3 max-w-xs mx-auto">
+                    <input type="password" id="admin-passcode-input" placeholder="Enter Passcode (Default: 1234)" required class="w-full bg-slate-950 border border-purple-900/60 rounded-xl px-4 py-2.5 text-center text-sm font-bold text-white tracking-widest focus:outline-none focus:border-pbb-cyan">
+                    <button type="submit" class="w-full bg-gradient-to-r from-pbb-cyan to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-black py-2.5 rounded-xl text-sm transition">
+                        Unlock Admin Access
+                    </button>
+                    <p id="auth-error-msg" class="text-xs text-red-400 text-center font-bold hidden">Incorrect Passcode!</p>
+                </form>
+            </div>
+
+            <!-- STEP 2: FULL ADMIN CONTROL PANEL (Shown after successful auth) -->
+            <div id="admin-panel-section" class="hidden space-y-6">
+                <div class="flex items-center justify-between border-b border-purple-900/40 pb-3">
+                    <h3 class="text-lg font-black text-white flex items-center gap-2">
+                        <i class="ph-bold ph-sliders text-pbb-gold"></i>
+                        Admin Controls
+                    </h3>
+                    <button onclick="lockAdminPanel()" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-2.5 py-1 rounded-lg">
+                        Lock Panel
+                    </button>
+                </div>
+
+                <!-- TALLY VISIBILITY TOGGLE -->
+                <div class="bg-slate-950/80 p-4 rounded-xl border border-purple-900/40 space-y-3">
+                    <h4 class="text-xs font-bold uppercase tracking-wider text-pbb-cyan">Public Tally Controls</h4>
+                    
+                    <div class="flex items-center justify-between gap-4 bg-slate-900/80 p-3 rounded-lg border border-slate-800">
+                        <div>
+                            <div class="text-sm font-semibold text-white">Public Tally Visibility</div>
+                            <div class="text-[11px] text-slate-400">Show or hide live standings from voters</div>
+                        </div>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" id="admin-tally-visible" class="sr-only peer" onchange="toggleTallyVisibility()">
+                            <div class="w-11 h-6 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-pbb-cyan"></div>
+                        </label>
+                    </div>
+
+                    <div class="flex items-center justify-between gap-4 bg-slate-900/80 p-3 rounded-lg border border-slate-800">
+                        <div>
+                            <div class="text-sm font-semibold text-white">Show Real Names (Admin Only)</div>
+                            <div class="text-[11px] text-slate-400">Reveal identity mappings on your screen</div>
+                        </div>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" id="admin-show-real-names" class="sr-only peer" onchange="toggleRealNameReveal()">
+                            <div class="w-11 h-6 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-pbb-pink"></div>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- OVERRIDE & TESTING -->
+                <div class="bg-slate-950/80 p-4 rounded-xl border border-purple-900/40 space-y-3">
+                    <h4 class="text-xs font-bold uppercase tracking-wider text-pbb-gold">Schedule & Manual Override</h4>
+                    
+                    <div class="flex items-center justify-between gap-4 bg-slate-900/80 p-3 rounded-lg border border-slate-800">
+                        <div>
+                            <div class="text-sm font-semibold text-white">Force Lock Voting</div>
+                            <div class="text-[11px] text-slate-400">Immediately lock all vote buttons</div>
+                        </div>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" id="admin-force-close" class="sr-only peer" onchange="toggleForceClose()">
+                            <div class="w-11 h-6 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-red-600"></div>
+                        </label>
+                    </div>
+
+                    <div class="flex items-center justify-between gap-4 bg-slate-900/80 p-3 rounded-lg border border-slate-800">
+                        <div>
+                            <div class="text-sm font-semibold text-white">Simulate Deadline</div>
+                            <div class="text-[11px] text-slate-400">Test Monday 12:31 PM lock state</div>
+                        </div>
+                        <div class="flex gap-2">
+                            <button onclick="simulatePastDeadline()" class="px-2.5 py-1.5 bg-purple-600 hover:bg-purple-500 text-white rounded-lg text-xs font-bold transition">
+                                Test Monday 12:31 PM
+                            </button>
+                            <button onclick="resetSimulatedTime()" class="px-2.5 py-1.5 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-xs font-bold transition">
+                                Reset
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ADD NEW NOMINEE -->
+                <div class="bg-slate-950/80 p-4 rounded-xl border border-purple-900/40 space-y-3">
+                    <h4 class="text-xs font-bold uppercase tracking-wider text-white">Add Nominated Housemate</h4>
+                    <form onsubmit="handleAddHousemate(event)" class="space-y-3">
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="text-[11px] text-slate-400 block mb-1">Public Code Name</label>
+                                <input type="text" id="new-code-name" required placeholder="e.g. Housemate E" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-pbb-cyan">
+                            </div>
+                            <div>
+                                <label class="text-[11px] text-slate-400 block mb-1">Real Name (Private)</label>
+                                <input type="text" id="new-real-name" placeholder="e.g. John Doe" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-pbb-cyan">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="text-[11px] text-slate-400 block mb-1">Tagline / Title</label>
+                            <input type="text" id="new-tagline" placeholder="e.g. The Jolly Dancer of Class A" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-pbb-cyan">
+                        </div>
+                        <div>
+                            <label class="text-[11px] text-slate-400 block mb-1">Avatar Image URL (Optional)</label>
+                            <input type="url" id="new-photo" placeholder="https://example.com/avatar.jpg" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-pbb-cyan">
+                        </div>
+                        <button type="submit" class="w-full bg-pbb-cyan hover:bg-cyan-300 text-slate-950 font-extrabold py-2 rounded-lg text-xs transition">
+                            Add Housemate to Eviction List
+                        </button>
+                    </form>
+                </div>
+
+                <!-- DANGER ZONE -->
+                <div class="border border-red-900/50 bg-red-950/20 p-4 rounded-xl space-y-3">
+                    <h4 class="text-xs font-bold uppercase tracking-wider text-red-400">Reset System Data</h4>
+                    <div class="flex items-center justify-between gap-3">
+                        <div class="text-xs text-slate-300">Clear all cast BBS & BBE votes to zero.</div>
+                        <button onclick="resetAllVotes()" class="px-3 py-2 bg-red-600/80 hover:bg-red-600 text-white text-xs font-bold rounded-lg shrink-0 transition">
+                            Reset All Votes
+                        </button>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- JAVASCRIPT LOGIC ENGINE -->
+    <script>
+        // --- SEED NOMINEES DATA (ANONYMIZED BY DEFAULT) ---
+        const DEFAULT_HOUSEMATES = [
+            {
+                id: 'hm-1',
+                codeName: 'Housemate A',
+                realName: 'Kenji',
+                tagline: 'The Tech Wizard',
+                bbs: 45,
+                bbe: 12,
+                photo: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?auto=format&fit=crop&w=400&q=80'
+            },
+            {
+                id: 'hm-2',
+                codeName: 'Housemate B',
+                realName: 'Samantha',
+                tagline: 'The Class Leader',
+                bbs: 62,
+                bbe: 18,
+                photo: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=400&q=80'
+            },
+            {
+                id: 'hm-3',
+                codeName: 'Housemate C',
+                realName: 'Marco',
+                tagline: 'The Campus Athlete',
+                bbs: 28,
+                bbe: 35,
+                photo: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=400&q=80'
+            },
+            {
+                id: 'hm-4',
+                codeName: 'Housemate D',
+                realName: 'Chloe',
+                tagline: 'The Artistic Heart',
+                bbs: 50,
+                bbe: 8,
+                photo: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=400&q=80'
+            }
+        ];
+
+        // --- APP STATE ---
+        let housemates = [];
+        let forceClosed = false;
+        let tallyVisible = false; // Secret tally by default
+        let showRealNamesAdmin = false;
+        let isAdminAuthenticated = false;
+        let simulatedTimeOffset = 0;
+        let timerInterval = null;
+        const ADMIN_PASSCODE = "1234";
+
+        // --- AUDIO SOUND SYNTHESIZER ---
+        function playSoundEffect(type) {
+            try {
+                const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+
+                if (type === 'bbs') {
+                    // Upward tone for Save
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(440, ctx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.15);
+                } else {
+                    // Downward tone for Evict
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(400, ctx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(150, ctx.currentTime + 0.15);
+                }
+
+                gain.gain.setValueAtTime(0.15, ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.15);
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.start();
+                osc.stop(ctx.currentTime + 0.15);
+            } catch(e) {}
+        }
+
+        // --- INIT & LOCAL STORAGE ---
+        function initApp() {
+            loadStorage();
+            renderHousemates();
+            renderLeaderboard();
+            startDeadlineClock();
+        }
+
+        function loadStorage() {
+            const savedData = localStorage.getItem('pbb_eviction_housemates_v3');
+            if (savedData) {
+                try {
+                    housemates = JSON.parse(savedData);
+                } catch(e) {
+                    housemates = DEFAULT_HOUSEMATES;
+                }
+            } else {
+                housemates = DEFAULT_HOUSEMATES;
+                saveStorage();
+            }
+
+            forceClosed = localStorage.getItem('pbb_force_close') === 'true';
+            tallyVisible = localStorage.getItem('pbb_tally_visible') === 'true';
+
+            document.getElementById('admin-force-close').checked = forceClosed;
+            document.getElementById('admin-tally-visible').checked = tallyVisible;
+        }
+
+        function saveStorage() {
+            localStorage.setItem('pbb_eviction_housemates_v3', JSON.stringify(housemates));
+            localStorage.setItem('pbb_force_close', forceClosed);
+            localStorage.setItem('pbb_tally_visible', tallyVisible);
+        }
+
+        // --- DEADLINE ENGINE (MONDAY 12:30 PM AUTO CLOSE) ---
+        function getAppDate() {
+            return new Date(Date.now() + simulatedTimeOffset);
+        }
+
+        function isVotingClosed() {
+            if (forceClosed) return true;
+
+            const now = getAppDate();
+            const day = now.getDay(); // 0 = Sun, 1 = Mon
+            const hrs = now.getHours();
+            const mins = now.getMinutes();
+
+            // Check if today is Monday and time is >= 12:30 PM
+            if (day === 1 && (hrs > 12 || (hrs === 12 && mins >= 30))) {
+                return true;
+            }
+            return false;
+        }
+
+        function getNextMondayDeadline() {
+            const now = getAppDate();
+            const deadline = new Date(now);
+            const day = now.getDay();
+            let diff = (1 - day + 7) % 7;
+
+            if (day === 1 && (now.getHours() > 12 || (now.getHours() === 12 && now.getMinutes() >= 30))) {
+                diff = 7;
+            }
+
+            deadline.setDate(now.getDate() + diff);
+            deadline.setHours(12, 30, 0, 0);
+            return deadline;
+        }
+
+        function startDeadlineClock() {
+            if (timerInterval) clearInterval(timerInterval);
+
+            function updateClock() {
+                const closed = isVotingClosed();
+                const closedBanner = document.getElementById('closed-banner');
+                const badge = document.getElementById('voting-status-badge');
+                const countdownDisplay = document.getElementById('countdown-display');
+                const statusIcon = document.getElementById('status-icon');
+
+                if (closed) {
+                    closedBanner.classList.remove('hidden');
+                    badge.className = "px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-red-500/20 text-red-400 border border-red-500/30 flex items-center gap-1.5";
+                    badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-red-500"></span><span>VOTING CLOSED</span>`;
+                    countdownDisplay.textContent = "Voting Period Ended";
+                    statusIcon.className = "ph-bold ph-lock-key text-red-400 text-xl";
+                } else {
+                    closedBanner.classList.add('hidden');
+                    badge.className = "px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center gap-1.5";
+                    badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span><span>VOTING OPEN</span>`;
+                    statusIcon.className = "ph-bold ph-timer text-pbb-cyan text-xl";
+
+                    const deadline = getNextMondayDeadline();
+                    const diffMs = deadline - getAppDate();
+
+                    if (diffMs > 0) {
+                        const days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+                        const hours = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                        const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+                        const seconds = Math.floor((diffMs % (1000 * 60)) / 1000);
+
+                        countdownDisplay.textContent = `${days}d ${hours}h ${minutes}m ${seconds}s`;
+                    }
+                }
+
+                // Update vote buttons interactive status
+                document.querySelectorAll('.vote-action-btn').forEach(btn => {
+                    btn.disabled = closed;
+                    if (closed) {
+                        btn.classList.add('opacity-40', 'cursor-not-allowed');
+                    } else {
+                        btn.classList.remove('opacity-40', 'cursor-not-allowed');
+                    }
+                });
+            }
+
+            updateClock();
+            timerInterval = setInterval(updateClock, 1000);
+        }
+
+        // --- VOTING LOGIC (BBS & BBE) ---
+        function castVote(id, type) {
+            if (isVotingClosed()) {
+                alert("Voting is currently closed!");
+                return;
+            }
+
+            const hm = housemates.find(h => h.id === id);
+            if (hm) {
+                if (type === 'bbs') {
+                    hm.bbs += 1;
+                    playSoundEffect('bbs');
+                } else {
+                    hm.bbe += 1;
+                    playSoundEffect('bbe');
+                }
+                saveStorage();
+
+                // Dynamic counter feedback animation
+                const counterElem = document.getElementById(`count-${type}-${id}`);
+                if (counterElem) {
+                    counterElem.textContent = hm[type].toLocaleString();
+                    counterElem.classList.add('scale-125', type === 'bbs' ? 'text-emerald-400' : 'text-red-400');
+                    setTimeout(() => counterElem.classList.remove('scale-125', 'text-emerald-400', 'text-red-400'), 200);
+                }
+
+                updateTotalVotesHeader();
+                if (tallyVisible || isAdminAuthenticated) renderLeaderboard();
+            }
+        }
+
+        function getTotalCastVotes() {
+            return housemates.reduce((sum, h) => sum + h.bbs + h.bbe, 0);
+        }
+
+        function updateTotalVotesHeader() {
+            const total = getTotalCastVotes();
+            document.getElementById('total-vote-count-header').textContent = total.toLocaleString();
+            document.getElementById('total-votes-tally').textContent = total.toLocaleString();
+        }
+
+        // --- RENDER HOUSEMATES CARDS ---
+        function renderHousemates() {
+            const grid = document.getElementById('housemate-grid');
+            grid.innerHTML = '';
+            const closed = isVotingClosed();
+
+            housemates.forEach(hm => {
+                const displayName = (isAdminAuthenticated && showRealNamesAdmin)
+                    ? `${hm.codeName} (${hm.realName})`
+                    : hm.codeName;
+
+                const card = document.createElement('div');
+                card.className = "glass-panel border border-purple-900/40 rounded-2xl overflow-hidden shadow-xl flex flex-col justify-between transition duration-300 hover:border-pbb-cyan/40 relative group";
+
+                card.innerHTML = `
+                    <div class="relative h-60 overflow-hidden bg-slate-950">
+                        <img src="${hm.photo}" alt="${hm.codeName}" class="w-full h-full object-cover object-top group-hover:scale-105 transition duration-500" onerror="this.src='https://placehold.co/400x500/131024/00f2fe?text=${encodeURIComponent(hm.codeName)}'">
+                        <div class="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/20 to-transparent"></div>
+                        
+                        <!-- Overlay Details -->
+                        <div class="absolute bottom-3 left-4 right-4">
+                            <span class="text-[10px] font-black uppercase tracking-widest text-pbb-cyan bg-slate-950/90 px-2 py-0.5 rounded border border-cyan-500/30">Nominated</span>
+                            <h3 class="text-xl font-black text-white tracking-wide mt-1">${displayName}</h3>
+                            <p class="text-xs text-slate-300 truncate">${hm.tagline || 'PBB Nominee'}</p>
+                        </div>
+
+                        ${isAdminAuthenticated ? `
+                            <button onclick="deleteHousemate('${hm.id}')" title="Delete Nominee" class="absolute top-3 right-3 p-2 bg-slate-950/80 hover:bg-red-600 text-slate-400 hover:text-white rounded-lg text-xs backdrop-blur-md transition">
+                                <i class="ph-bold ph-trash"></i>
+                            </button>
+                        ` : ''}
+                    </div>
+
+                    <div class="p-4 space-y-3">
+                        <!-- Vote Counts (BBS & BBE) -->
+                        <div class="grid grid-cols-2 gap-2 text-center text-xs bg-slate-950/70 p-2.5 rounded-xl border border-purple-900/40">
+                            <div>
+                                <span class="text-[10px] uppercase font-bold text-emerald-400">BBS (Save)</span>
+                                <div id="count-bbs-${hm.id}" class="text-sm font-black text-white">${hm.bbs.toLocaleString()}</div>
+                            </div>
+                            <div>
+                                <span class="text-[10px] uppercase font-bold text-red-400">BBE (Evict)</span>
+                                <div id="count-bbe-${hm.id}" class="text-sm font-black text-white">${hm.bbe.toLocaleString()}</div>
+                            </div>
+                        </div>
+
+                        <!-- Action Buttons -->
+                        <div class="grid grid-cols-2 gap-2">
+                            <button 
+                                onclick="castVote('${hm.id}', 'bbs')" 
+                                class="vote-action-btn py-3 px-2 bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white font-extrabold rounded-xl text-xs tracking-wider transition-all shadow-lg flex items-center justify-center gap-1 ${closed ? 'opacity-40 cursor-not-allowed' : ''}"
+                                ${closed ? 'disabled' : ''}
+                            >
+                                <i class="ph-bold ph-thumbs-up text-sm"></i>
+                                BBS SAVE
+                            </button>
+
+                            <button 
+                                onclick="castVote('${hm.id}', 'bbe')" 
+                                class="vote-action-btn py-3 px-2 bg-red-600 hover:bg-red-500 active:scale-95 text-white font-extrabold rounded-xl text-xs tracking-wider transition-all shadow-lg flex items-center justify-center gap-1 ${closed ? 'opacity-40 cursor-not-allowed' : ''}"
+                                ${closed ? 'disabled' : ''}
+                            >
+                                <i class="ph-bold ph-thumbs-down text-sm"></i>
+                                BBE EVICT
+                            </button>
+                        </div>
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+
+            updateTotalVotesHeader();
+        }
+
+        // --- RENDER LEADERBOARD TALLY ---
+        function renderLeaderboard() {
+            const list = document.getElementById('leaderboard-list');
+            const secretNotice = document.getElementById('tally-hidden-notice');
+
+            if (!tallyVisible && !isAdminAuthenticated) {
+                list.classList.add('hidden');
+                secretNotice.classList.remove('hidden');
+                return;
+            }
+
+            list.classList.remove('hidden');
+            secretNotice.classList.add('hidden');
+            list.innerHTML = '';
+
+            const totalVotes = getTotalCastVotes();
+
+            // Calculate Net Scores & percentages
+            const hmStats = housemates.map(hm => {
+                const totalHMVotes = hm.bbs + hm.bbe;
+                const netVotes = hm.bbs - hm.bbe;
+                const bbsPct = totalVotes > 0 ? ((hm.bbs / totalVotes) * 100).toFixed(1) : '0.0';
+                const bbePct = totalVotes > 0 ? ((hm.bbe / totalVotes) * 100).toFixed(1) : '0.0';
+                const netPct = (parseFloat(bbsPct) - parseFloat(bbePct)).toFixed(1);
+
+                return {
+                    ...hm,
+                    netVotes,
+                    bbsPct,
+                    bbePct,
+                    netPct: parseFloat(netPct)
+                };
+            });
+
+            // Sort by Net Percentage descending
+            hmStats.sort((a, b) => b.netPct - a.netPct);
+
+            hmStats.forEach((hm, index) => {
+                const displayName = (isAdminAuthenticated && showRealNamesAdmin)
+                    ? `${hm.codeName} (${hm.realName})`
+                    : hm.codeName;
+
+                const item = document.createElement('div');
+                item.className = "bg-slate-950/80 border border-purple-900/40 p-4 rounded-xl space-y-3";
+
+                item.innerHTML = `
+                    <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                        <div class="flex items-center gap-3">
+                            <span class="w-7 h-7 rounded-full ${index === 0 ? 'bg-pbb-gold text-slate-950 font-black' : 'bg-slate-800 text-slate-400 font-bold'} text-xs flex items-center justify-center shrink-0">
+                                ${index + 1}
+                            </span>
+                            <img src="${hm.photo}" class="w-10 h-10 rounded-full object-cover border border-purple-500/30" onerror="this.src='https://placehold.co/100x100/131024/00f2fe?text=${encodeURIComponent(hm.codeName)}'">
+                            <div>
+                                <h4 class="font-bold text-white text-sm flex items-center gap-2">
+                                    ${displayName}
+                                    ${index === 0 ? '<span class="text-[10px] bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded font-black border border-emerald-500/30">MOST SAVED</span>' : ''}
+                                    ${index === hmStats.length - 1 ? '<span class="text-[10px] bg-red-500/20 text-red-400 px-2 py-0.5 rounded font-black border border-red-500/30">DANGER ZONE</span>' : ''}
+                                </h4>
+                                <div class="text-[11px] text-slate-400 flex items-center gap-3 mt-0.5">
+                                    <span class="text-emerald-400 font-semibold">BBS: ${hm.bbs} (${hm.bbsPct}%)</span>
+                                    <span class="text-red-400 font-semibold">BBE: ${hm.bbe} (${hm.bbePct}%)</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="text-right sm:text-right w-full sm:w-auto flex sm:flex-col justify-between items-center sm:items-end border-t sm:border-t-0 border-slate-800 pt-2 sm:pt-0">
+                            <div class="text-[10px] text-slate-400 uppercase tracking-wider font-bold">Net Score (BBS - BBE)</div>
+                            <div class="text-lg font-black ${hm.netPct >= 0 ? 'text-pbb-cyan' : 'text-red-400'}">
+                                ${hm.netPct > 0 ? '+' : ''}${hm.netPct}%
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Visual Breakdown Bar -->
+                    <div class="w-full bg-slate-900 rounded-full h-3 overflow-hidden flex border border-slate-800">
+                        <div class="bg-emerald-500 h-full transition-all duration-500" style="width: ${Math.max(0, hm.bbsPct)}%" title="BBS: ${hm.bbsPct}%"></div>
+                        <div class="bg-red-500 h-full transition-all duration-500" style="width: ${Math.max(0, hm.bbePct)}%" title="BBE: ${hm.bbePct}%"></div>
+                    </div>
+                `;
+                list.appendChild(item);
+            });
+        }
+
+        // --- TAB SWITCHING ---
+        function switchTab(tab) {
+            const voteTab = document.getElementById('tab-vote');
+            const leaderboardTab = document.getElementById('tab-leaderboard');
+            const viewVote = document.getElementById('view-vote');
+            const viewLeaderboard = document.getElementById('view-leaderboard');
+
+            if (tab === 'vote') {
+                voteTab.className = "flex-1 sm:flex-initial px-5 py-2.5 rounded-lg text-sm font-bold transition-all duration-200 flex items-center justify-center gap-2 bg-gradient-to-r from-pbb-cyan to-blue-600 text-slate-950 shadow-md";
+                leaderboardTab.className = "flex-1 sm:flex-initial px-5 py-2.5 rounded-lg text-sm font-bold text-slate-400 hover:text-white transition-all duration-200 flex items-center justify-center gap-2";
+                viewVote.classList.remove('hidden');
+                viewLeaderboard.classList.add('hidden');
+            } else {
+                leaderboardTab.className = "flex-1 sm:flex-initial px-5 py-2.5 rounded-lg text-sm font-bold transition-all duration-200 flex items-center justify-center gap-2 bg-gradient-to-r from-pbb-cyan to-blue-600 text-slate-950 shadow-md";
+                voteTab.className = "flex-1 sm:flex-initial px-5 py-2.5 rounded-lg text-sm font-bold text-slate-400 hover:text-white transition-all duration-200 flex items-center justify-center gap-2";
+                viewVote.classList.add('hidden');
+                viewLeaderboard.classList.remove('hidden');
+                renderLeaderboard();
+            }
+        }
+
+        // --- ADMIN AUTH & MODAL ---
+        function openAdminModal() {
+            document.getElementById('admin-modal').classList.remove('hidden');
+            if (!isAdminAuthenticated) {
+                document.getElementById('admin-auth-section').classList.remove('hidden');
+                document.getElementById('admin-panel-section').classList.add('hidden');
+            } else {
+                document.getElementById('admin-auth-section').classList.add('hidden');
+                document.getElementById('admin-panel-section').classList.remove('hidden');
+            }
+        }
+
+        function closeAdminModal() {
+            document.getElementById('admin-modal').classList.add('hidden');
+        }
+
+        function verifyAdminPasscode(e) {
+            e.preventDefault();
+            const input = document.getElementById('admin-passcode-input').value;
+            const errorMsg = document.getElementById('auth-error-msg');
+
+            if (input === ADMIN_PASSCODE) {
+                isAdminAuthenticated = true;
+                errorMsg.classList.add('hidden');
+                document.getElementById('admin-auth-section').classList.add('hidden');
+                document.getElementById('admin-panel-section').classList.remove('hidden');
+                renderHousemates();
+                renderLeaderboard();
+            } else {
+                errorMsg.classList.remove('hidden');
+            }
+        }
+
+        function lockAdminPanel() {
+            isAdminAuthenticated = false;
+            document.getElementById('admin-passcode-input').value = '';
+            closeAdminModal();
+            renderHousemates();
+            renderLeaderboard();
+        }
+
+        function toggleTallyVisibility() {
+            tallyVisible = document.getElementById('admin-tally-visible').checked;
+            saveStorage();
+            renderLeaderboard();
+        }
+
+        function toggleRealNameReveal() {
+            showRealNamesAdmin = document.getElementById('admin-show-real-names').checked;
+            renderHousemates();
+            renderLeaderboard();
+        }
+
+        function toggleForceClose() {
+            forceClosed = document.getElementById('admin-force-close').checked;
+            saveStorage();
+            startDeadlineClock();
+            renderHousemates();
+        }
+
+        function simulatePastDeadline() {
+            const now = new Date();
+            const monday = new Date();
+            monday.setDate(now.getDate() + ((1 + 7 - now.getDay()) % 7));
+            monday.setHours(12, 31, 0, 0);
+
+            simulatedTimeOffset = monday.getTime() - Date.now();
+            startDeadlineClock();
+            renderHousemates();
+        }
+
+        function resetSimulatedTime() {
+            simulatedTimeOffset = 0;
+            startDeadlineClock();
+            renderHousemates();
+        }
+
+        function handleAddHousemate(e) {
+            e.preventDefault();
+            const codeName = document.getElementById('new-code-name').value.trim();
+            const realName = document.getElementById('new-real-name').value.trim() || 'Hidden';
+            const tagline = document.getElementById('new-tagline').value.trim();
+            const photo = document.getElementById('new-photo').value.trim();
+
+            if (!codeName) return;
+
+            const newHM = {
+                id: 'hm-' + Date.now(),
+                codeName,
+                realName,
+                tagline: tagline || 'PBB Nominee',
+                bbs: 0,
+                bbe: 0,
+                photo: photo || `https://placehold.co/400x500/131024/00f2fe?text=${encodeURIComponent(codeName)}`
+            };
+
+            housemates.push(newHM);
+            saveStorage();
+            renderHousemates();
+            renderLeaderboard();
+
+            // Clear inputs
+            document.getElementById('new-code-name').value = '';
+            document.getElementById('new-real-name').value = '';
+            document.getElementById('new-tagline').value = '';
+            document.getElementById('new-photo').value = '';
+
+            alert(`${codeName} has been added!`);
+        }
+
+        function deleteHousemate(id) {
+            if (confirm("Are you sure you want to remove this housemate?")) {
+                housemates = housemates.filter(h => h.id !== id);
+                saveStorage();
+                renderHousemates();
+                renderLeaderboard();
+            }
+        }
+
+        function resetAllVotes() {
+            if (confirm("Reset ALL BBS and BBE votes to zero?")) {
+                housemates.forEach(h => {
+                    h.bbs = 0;
+                    h.bbe = 0;
+                });
+                saveStorage();
+                renderHousemates();
+                renderLeaderboard();
+            }
+        }
+
+        // Start App
+        window.onload = function() {
+            initApp();
+        };
+    </script>
+</body>
+</html>
